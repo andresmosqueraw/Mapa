@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Esri Leaflet Map with Layer Control</title>
+    <title>Esri Leaflet Map with Layer Control and Date Range Filter</title>
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -18,10 +18,51 @@
             font-size: 14px;
             color: #323232;
         }
+        #time-ranges {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 1em;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #time-ranges input {
+            display: inline-block;
+            border: 1px solid #999;
+            font-size: 14px;
+            border-radius: 4px;
+            height: 28px;
+            line-height: 28px;
+            margin: 0 5px;
+        }
+        #time-ranges input[type="submit"] {
+            box-sizing: content-box;
+            padding: 0 1em;
+            text-transform: uppercase;
+            color: white;
+            background: #5c7db8;
+            border-color: #5c7db8;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="time-ranges" class="leaflet-bar">
+        <form action="#" id="form">
+            <label for="from">
+                From
+                <input id="from" type="date" name="from" />
+            </label>
+            <label for="to">
+                To
+                <input id="to" type="date" name="to" />
+            </label>
+            <input type="submit" value="Update" />
+        </form>
+    </div>
     <script>
         // Crear el mapa
         var map = L.map('map').setView([4.60971, -74.08175], 12); // Centrado en Bogotá
@@ -36,8 +77,8 @@
         var baseLayers = {};
         var overlays = {};
 
-        // Función para añadir layers al control de capas
-        function addEsriLayers(url, overlays) {
+        // Función para añadir layers al control de capas con filtro de fechas
+        function addEsriLayers(url, overlays, timeField) {
             var esriLayer = L.esri.dynamicMapLayer({
                 url: url,
                 useCors: false
@@ -53,10 +94,9 @@
                 layers.forEach(function(layer) {
                     // Crear un overlay para cada layer sin añadirlo inicialmente al mapa
                     var layerId = layer.id;
-                    var overlayLayer = L.esri.dynamicMapLayer({
-                        url: url,
-                        layers: [layerId],
-                        useCors: false
+                    var overlayLayer = L.esri.featureLayer({
+                        url: url + '/' + layerId,
+                        timeField: timeField
                     });
 
                     overlays[layer.name] = overlayLayer;
@@ -64,16 +104,34 @@
             });
         }
 
-        // Añadir layers del primer servicio
-        addEsriLayers('https://www.acueducto.com.co/sigueserverpublish/rest/services/ACUEDUCTO_SERVICIOS/RedAcueducto/MapServer', overlays);
+        // Añadir layers del primer servicio con filtro de fechas
+        addEsriLayers('https://www.acueducto.com.co/sigueserverpublish/rest/services/ACUEDUCTO_SERVICIOS/RedAcueducto/MapServer', overlays, 'date_visit');
 
-        // Añadir layers del segundo servicio
-        addEsriLayers('https://www.acueducto.com.co/sigueserverpublish/rest/services/SGO_Red_Matriz_Pruebas/Vista_Red_Acueducto/MapServer', overlays);
+        // Añadir layers del segundo servicio con filtro de fechas
+        addEsriLayers('https://www.acueducto.com.co/sigueserverpublish/rest/services/SGO_Red_Matriz_Pruebas/Vista_Red_Acueducto/MapServer', overlays, 'date_visit');
 
         // Añadir el control de capas al mapa después de cargar todas las capas
         setTimeout(function() {
             L.control.layers(baseLayers, overlays).addTo(map);
         }, 3000); // Esperar 3 segundos para asegurarse de que los layers se hayan añadido
+
+        // Manejar el formulario de filtro de fechas
+        const timeForm = document.getElementById("form");
+        const startTimeInput = document.getElementById("from");
+        const endTimeInput = document.getElementById("to");
+
+        timeForm.addEventListener("submit", function updateTimeRange(e) {
+            e.preventDefault();
+
+            var startTime = new Date(startTimeInput.value);
+            var endTime = new Date(endTimeInput.value);
+
+            for (var layerName in overlays) {
+                if (overlays.hasOwnProperty(layerName)) {
+                    overlays[layerName].setTimeRange(startTime, endTime);
+                }
+            }
+        });
     </script>
 </body>
 </html>
